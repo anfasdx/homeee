@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Silly story generator</title>
+    <style>
+      body {
+        font-family: helvetica, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 100vw;
+      }
+      .container {
+        border: #000000 2px dashed;
+        border-spacing: 5px;
+        padding: 30px;
+        border-radius: 30px;
+        width: 50vw;
+      }
+
+      label {
+        font-weight: bold;
+      }
+
+      div {
+        padding-bottom: 20px;
+      }
+
+      input[type="text"] {
+        padding: 5px;
+        width: 150px;
+      }
+
+      .story {
+        background: #c3c1bd;
+        color: #000000;
+        padding: 10px;
+        /* visibility: hidden; */
+        max-width: inherit;
+        min-height: 10vh;
+        border-radius: 10px;
+      }
+      .name {
+        background: #89ff68;
+        padding: 2px;
+      }
+      .other {
+        background: #fffc68;
+        padding: 2px;
+      }
+      .disabled {
+        opacity: 50%;
+      }
+    </style>
+  </head>
+
+  <body >
+    <div class="container">
+      <div>
+        <code>Tip : Write name and hit Enter</code><br>
+        <code id="output"></code>
+        <br />
+        <label for="customname">Enter Custom Name In English:</label>
+        <input id="customname" type="text" placeholder="Manu.."   />
+      </div>
+      <div>
+        <label for="malayalam">Malayalam</label
+        ><input id="malayalam" type="radio" name="Lang" value="malayalam" checked />
+        <label for="english" class="disabled">English</label
+        ><input id="english" type="radio" name="Lang" value="english" disabled />
+      </div>
+      <div>
+        <button class="randomize">Generate random story</button>
+      </div>
+      <p class="story"></p>
+    </div>
+    <script src="https://www.gstatic.com/inputtools/js/loader.js" ></script>
+    <script src="main.js"></script>
+    <script>
+      function onLoad() {
+  google.elements.transliteration.init(
+      {
+          sourceLanguage: google.elements.transliteration.LanguageCode.ENGLISH,
+          destinationLanguage: [google.elements.transliteration.LanguageCode.MALAYALAM],
+          transliterationEnabled: true
+      });
+}
+
+function transliterate() {
+  const name = document.getElementById('customname').value;
+  google.elements.transliteration.transliterate([name], 'ENGLISH', 'MALAYALAM', function(result) {
+      document.getElementById('output').innerText = "";
+  });
+}
+
+function initialize() {
+  google.load("elements", "1", { packages: "transliteration" });
+  google.setOnLoadCallback(onLoad);
+}
+    </script>
+  </body>
+</html>
