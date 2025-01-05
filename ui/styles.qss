@@ -1,0 +1,8 @@
+QMainWindow {
+    background-color: #f5f5f5;
+}
+
+QGraphicsView {
+    border: 2px solid #ccc;
+    background-color: #ffffff;
+}
