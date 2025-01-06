@@ -80,40 +80,50 @@ with mp_hands.Hands() as hands:
         # Process the frame for hand tracking
         results = hands.process(rgb_frame)
 
-        closest_right_hand = None
-        min_distance = float('inf')
-
-        # Find the closest right hand
+        # Draw landmarks and hand connections
         if results.multi_hand_landmarks:
             for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
                 hand_label = handedness.classification[0].label
+                draw_landmarks(frame, hand_landmarks, hand_label)
+
+                h, w, _ = frame.shape
+                index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                cx, cy = int(index_finger_tip.x * w), int(index_finger_tip.y * h)
+
                 if hand_label == 'Right':
-                    index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                    distance = index_finger_tip.z
-                    if distance < min_distance:
-                        min_distance = distance
-                        closest_right_hand = hand_landmarks
+                    if (is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP)):
+                        # Draw a green dot at the index finger tip
+                        cv2.circle(frame, (cx, cy), 3, pen_color, -1)
+                        # Draw on the canvas
+                        if prev_x is not None and prev_y is not None:
+                            cv2.line(canvas, (prev_x, prev_y), (cx, cy), pen_color, 3)
+                        prev_x, prev_y = cx, cy
+                    else:
+                        prev_x, prev_y = None, None
 
-        # Draw landmarks and hand connections for the closest right hand
-        if closest_right_hand:
-            draw_landmarks(frame, closest_right_hand, 'Right')
+                elif hand_label == 'Left':
+                    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+                    thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP]
+                    pen_color = get_pen_color(thumb_tip.y, thumb_mcp.y)
 
-            h, w, _ = frame.shape
-            index_finger_tip = closest_right_hand.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-            cx, cy = int(index_finger_tip.x * w), int(index_finger_tip.y * h)
-
-            if (is_finger_raised(closest_right_hand.landmark, mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
-                not is_finger_raised(closest_right_hand.landmark, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
-                not is_finger_raised(closest_right_hand.landmark, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
-                not is_finger_raised(closest_right_hand.landmark, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP)):
-                # Draw a green dot at the index finger tip
-                cv2.circle(frame, (cx, cy), 3, pen_color, -1)
-                # Draw on the canvas
-                if prev_x is not None and prev_y is not None:
-                    cv2.line(canvas, (prev_x, prev_y), (cx, cy), pen_color, 3)
-                prev_x, prev_y = cx, cy
-            else:
-                prev_x, prev_y = None, None
+                    middle_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+                    mx, my = int(middle_finger_tip.x * w), int(middle_finger_tip.y * h)
+                    if (is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP)):
+                        # Draw a white rectangle between the index and middle finger tips to erase
+                        cv2.rectangle(canvas, (cx - 55, cy - 30), (cx + 5, cy + 20), (0, 0, 0), -1)
+                        
+                    # Check if pinky and thumb are raised to reset the canvas
+                    if (is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_MCP) and
+                        is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.THUMB_TIP, mp_hands.HandLandmark.THUMB_MCP) and 
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP) and
+                        not is_finger_raised(hand_landmarks.landmark, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP)):
+                        canvas = np.zeros((480, 640, 3), dtype=np.uint8)
 
         # Combine the frame and canvas
         combined_frame = cv2.addWeighted(frame, 0.5, canvas, 0.5, 0)
@@ -147,23 +157,3 @@ with mp_hands.Hands() as hands:
 # Release resources and close the display window
 video_capture.release()
 cv2.destroyAllWindows()
-# Initialize variables for dragging
-dragging = False
-drag_start_x, drag_start_y = None, None
-canvas_offset_x, canvas_offset_y = 0, 0
-
-def is_hand_closed(landmarks):
-    return all(
-        is_finger_raised(landmarks, finger_tip, finger_mcp)
-        for finger_tip, finger_mcp in [
-            (mp_hands.HandLandmark.THUMB_TIP, mp_hands.HandLandmark.THUMB_MCP),
-            (mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_MCP),
-            (mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_MCP),
-            (mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_MCP),
-            (mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_MCP),
-        ]
-    )
-
-with mp_hands.Hands() as hands:
-    while video_capture.isOpened():
-        ret, frame =
